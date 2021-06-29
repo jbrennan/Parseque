@@ -16,6 +16,14 @@ public struct Parser<ResultType> {
 	/// but it's probably best to keep it simple and compose lots of simple parsers together.
 	public let parse: (String) -> ParseResult<ResultType>
 	
+	/// Initialize the parser with a parse closure.
+	///
+	/// This is primarily used for writing new kinds of parsing tools.
+	/// If you're just parsing something, you may instead want to use compose some of the static methods below, instead.
+	public init(parse: @escaping (String) -> ParseResult<ResultType>) {
+		self.parse = parse
+	}
+	
 	/// Runs the parser. You probably only want to call this on your outermost parser to parse your whole string.
 	public func run(input: String) -> ParseResult<ResultType> {
 		return parse(input)
