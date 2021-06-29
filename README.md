@@ -1,6 +1,6 @@
 # Parseque
 
-A tiny parser combinator library by Jason Brennan. Why? Because.
+A tiny parser combinator library by Jason Brennan, just because.
 
 ### Installation
 
