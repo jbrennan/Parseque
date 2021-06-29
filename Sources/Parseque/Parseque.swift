@@ -76,6 +76,96 @@ public extension Parser where ResultType == String {
 			return .value(foundResult, remainder: String(remainder))
 		})
 	}
+	
+	// TODO: write some tests for this, idk if it works great
+	static func stringParser(matching text: String) -> Parser<String> {
+		return Parser(parse: { string in
+			guard string.isEmpty == false else { return .failure("String is empty") }
+			guard string.hasPrefix(text) else { return .failure("String Parser did not begin with text: `\(text)`") }
+			
+			return .value(text, remainder: String(string.dropFirst(text.count)))
+		})
+	}
+	
+	// TODO: unit test this.
+	/// Matches until the first instance of the given `text`, and includes that `text` in the remainder.
+	static func stringParser(matchingUntilFirstInstanceOf text: String) -> Parser<String> {
+		return Parser(parse: { string in
+			guard string.isEmpty == false else { return .failure("String is empty") }
+			guard let firstRange = string.range(of: text) else {
+				return .failure("String parser could not find an occurrance of text: `\(text)`")
+			}
+			
+//			return .value(String(string[..<firstRange.lowerBound]), remainder: String(string[firstRange.upperBound...]))
+			return .value(String(string[..<firstRange.lowerBound]), remainder: String(string[firstRange.lowerBound...]))
+		})
+	}
+	
+	// TODO: unit test this too
+	// I don't think this is really what I want.
+	// when parsing a string like `blah blah end` and matching with a predicate like `string.hasSuffix("end") == false`
+	// it correctly stops parsing when it gets to the `end` part, but because it's already consumed the `e,n`
+	// that gets added to the parsed string, which is not what I want.
+	//
+	// I think I really just want something like `stringParser(matchingUntil text: String)`, akin to the above parser
+	static func stringParser(matchingAccumulatedText predicate: @escaping (String) -> Bool) -> Parser<String> {
+		return Parser(parse: { string in
+			guard string.isEmpty == false else { return .failure("String is empty") }
+			
+			var accumulatedText = ""
+			let remainder = string.drop(while: {
+				if predicate(accumulatedText.appending(String($0))) {
+					accumulatedText.append($0)
+					return true
+				}
+				return false
+			})
+			
+			guard accumulatedText.isEmpty == false else {
+				return .failure("String parser did not find a matching string.")
+			}
+			
+			return .value(accumulatedText, remainder: String(remainder))
+		})
+	}
+}
+
+public extension Parser {
+	
+	/// A parser that conditionally passes, based on the result of the given predicate.
+	///
+	/// This is conceptually similar to `filter()`, but on the result value.
+	func matching(where predicate: @escaping (ResultType) -> Bool) -> Parser<ResultType> {
+		return Parser<ResultType>(parse: { string in
+			switch self.parse(string) {
+			case let .value(value, remainder):
+				if predicate(value) {
+					return .value(value, remainder: remainder)
+				}
+				return .failure("Value \(value) did not pass `matching(where:)`")
+				
+			case .failure(let message):
+				return .failure(message)
+			}
+		})
+	}
+	
+	/// Allows you to debug values at any point in a parser chain.
+	///
+	/// Calling this method will insert a print statement when it's evaluated, with its current value.
+	func debug() -> Parser<ResultType> {
+		return Parser<ResultType>(parse: { string in
+			switch self.parse(string) {
+			case let .value(result, remainder):
+				print("*** Value: `\(result)`. Remainder: `\(remainder)`")
+				return .value(result, remainder: remainder)
+				
+			case .failure(let message):
+				print("*** Failure: \(message)")
+				return .failure(message)
+			}
+		})
+	}
 }
 
 public extension Parser where ResultType == Int {
