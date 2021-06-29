@@ -45,6 +45,14 @@ public extension Parser where ResultType == String {
 	static func whitespaceParser() -> Parser<String> {
 		return stringParser(matching: \.isWhitespace)
 	}
+	
+	static func stringParser(matchingUntil predicate: @escaping (Character) -> Bool) -> Parser<String> {
+		return stringParser(matching: { predicate($0) == false })
+	}
+	
+	static func stringParser(matchingUntil character: Character) -> Parser<String> {
+		return stringParser(matchingUntil: { $0 == character })
+	}
 
 	/// Parses leading sequential characters matching the given `predicate`.
 	static func stringParser(matching predicate: @escaping (Character) -> Bool) -> Parser<String> {
@@ -62,7 +70,7 @@ public extension Parser where ResultType == String {
 			guard foundResult.isEmpty == false else {
 				return .failure("Didn't find any leading characters that matched the given predicate.")
 			}
-			
+			print("String parser found result: `\(foundResult)` Remainder: `\(remainder)`")
 			return .value(foundResult, remainder: String(remainder))
 		})
 	}
@@ -87,7 +95,20 @@ public extension Parser {
 			case .failure(let error):
 				return .failure(error)
 			}
-			
+		})
+	}
+
+	/// Maps the error message to a new message. You can use this to give more relevant error messages.
+	///
+	/// In the future, the error reporting should be improved so that parsers can give more structured feedback. For now, we'll rely on string replacements.
+	func mapError(_ transformer: @escaping (String) -> String) -> Parser<ResultType> {
+		Parser<ResultType>(parse: { string in
+			switch self.parse(string) {
+			case let .value(value, remainder):
+				return .value(value, remainder: remainder)
+			case .failure(let error):
+				return .failure(transformer(error))
+			}
 		})
 	}
 	
@@ -144,7 +165,7 @@ public extension Parser {
 ////		})
 //	}
 	
-	/// Returns an array of the receiver's (self) result type, which were found by ignoring values parsed by the `separatorParser`.
+	/// Returns an array containing 0-or-more of the receiver's (self) result type, which were found by ignoring values parsed by the `separatorParser`.
 	/// You might use this to parse a comma-separated list of values, for example.
 	func seperated<SeparatorType>(by separatorParser: Parser<SeparatorType>) -> Parser<[ResultType]> {
 		return Parser<[ResultType]>(parse: { string in
@@ -186,6 +207,50 @@ public func between<Surrounding, ContentType>(leftParser: Parser<Surrounding>, c
 	})
 }
 
+/// Returns a parser for the content in between the left and right characters.
+/// You might use this for parsing content between ( and ) for example.
+public func between<ContentType>(leftCharacter: Character, content: Parser<ContentType>, rightCharacter: Character) -> Parser<ContentType> {
+	return Parser.characterParser(matching: leftCharacter)
+		.followed(by: content)
+		.followed(by: .characterParser(matching: rightCharacter))
+		.map({
+			// drill in to return the ContentType
+			$0.0.1
+		})
+}
+
+/// Similar to `between()` except this function extracts the left and right side and ignores what's in between.
+public func split<LeftType, SeparatorType, RightType>(left: Parser<LeftType>, separator: Parser<SeparatorType>, right: Parser<RightType>) -> Parser<(LeftType, RightType)> {
+	return left
+		.followed(by: separator)
+		.followed(by: right)
+		.map {
+			return ($0.0.0, $0.1)
+		}
+}
+
+public func zeroOrMore<ResultType>(of parser: Parser<ResultType>) -> Parser<[ResultType]> {
+	return Parser<[ResultType]>(parse: { string in
+		var components = [ResultType]()
+		var remainingString = string
+		var keepLooping = true
+		
+		while keepLooping {
+			switch parser.parse(remainingString) {
+			case let .value(value, remainder):
+				components.append(value)
+				remainingString = remainder
+			case .failure:
+				// if I just used `break` here, that would only break out of the switch
+				// and I don't want to use labels either; a Bool is more explicit.
+				keepLooping = false
+			}
+		}
+		
+		return .value(components, remainder: remainingString)
+	})
+}
+
 public enum Either<Left, Right> {
 	case left(Left)
 	case right(Right)
@@ -212,8 +277,12 @@ public func either<FirstType, SecondType>(firstParser: Parser<FirstType>, second
 public func choice<ResultType>(from parsers: [Parser<ResultType>]) -> Parser<ResultType> {
 	return Parser(parse: { string in
 		for parser in parsers {
-			if case let .value(value, remainder) = parser.parse(string) {
+			switch parser.parse(string) {
+			case let .value(value, remainder):
 				return .value(value, remainder: remainder)
+			case .failure(let message):
+//				print("choice failure: \(message)")
+				break
 			}
 		}
 		
@@ -229,4 +298,10 @@ public func lazilyProvided<ResultType>(by provider: @escaping () -> Parser<Resul
 	return Parser(parse: { string in
 		provider().parse(string)
 	})
+}
+
+public extension Bool {
+	
+	/// Returns if the receiver is `false`. Can be used in keypaths.
+	var isFalse: Bool { self == false }
 }
