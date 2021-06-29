@@ -19,6 +19,22 @@ final class ParsequeTests: XCTestCase {
 		}
 	}
 	
+	func testAnyStringBetweenQuotes() {
+		let betweenQuotes = between(
+			leftParser: .characterParser(matching: "\""),
+			content: Parser.stringParser(matching: { $0 != "\"" }),
+			rightParser: .characterParser(matching: "\"")
+		)
+		
+		switch betweenQuotes.run(input: "\"abc\"") {
+		case let .value(value, remainder):
+			XCTAssertEqual(value, "abc")
+			XCTAssertEqual(remainder, "")
+		case .failure(let message):
+			XCTFail(message)
+		}
+	}
+	
 	func testEither() {
 		let betweenSquareBrackets = between(
 			leftParser: Parser.characterParser(matching: "["),
@@ -292,6 +308,48 @@ final class ParsequeTests: XCTestCase {
 			XCTFail()
 		case .failure:
 			break
+		}
+	}
+	
+	func testStringParserUntilPredicate() {
+		let parser = Parser.stringParser(matchingUntil: { $0 == "_" })
+		switch parser.run(input: "jason_brennan") {
+		case let .value(found, remainder):
+			XCTAssertEqual(found, "jason")
+			XCTAssertEqual(remainder, "_brennan")
+		case .failure(let message):
+			XCTFail(message)
+		}
+	}
+	
+	func testStringParserUntilCharacter() {
+		let parser = Parser.stringParser(matchingUntil: "_")
+		switch parser.run(input: "jason_brennan") {
+		case let .value(found, remainder):
+			XCTAssertEqual(found, "jason")
+			XCTAssertEqual(remainder, "_brennan")
+		case .failure(let message):
+			XCTFail(message)
+		}
+	}
+	
+	func testZeroOrMore() {
+		let parser = zeroOrMore(of: .characterParser(matching: "a"))
+		
+		switch parser.run(input: "aaabc") {
+		case let .value(v, remainder):
+			XCTAssertEqual(v, ["a", "a", "a"])
+			XCTAssertEqual(remainder, "bc")
+		case .failure(let message):
+			XCTFail(message)
+		}
+		
+		switch parser.run(input: "bc") {
+		case let .value(v, remainder):
+			XCTAssertEqual(v, [])
+			XCTAssertEqual(remainder, "bc")
+		case .failure(let message):
+			XCTFail(message)
 		}
 	}
 }
