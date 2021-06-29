@@ -57,7 +57,9 @@ public extension Parser where ResultType == String {
 	/// Parses leading sequential characters matching the given `predicate`.
 	static func stringParser(matching predicate: @escaping (Character) -> Bool) -> Parser<String> {
 		return Parser(parse: { string in
-			guard string.isEmpty == false else { return .failure("String is empty") }
+			guard string.isEmpty == false else {
+				return .failure("String is empty")
+			}
 			
 			var foundResult = ""
 			let remainder = string.drop(while: {
@@ -173,6 +175,7 @@ public extension Parser {
 			var remainingString = string
 			var keepLooping = true
 			
+			print("--- separated: begin for string: `\(remainingString)`")
 			while keepLooping {
 				switch self.parse(remainingString) {
 				case let .value(value, remainder):
@@ -192,7 +195,7 @@ public extension Parser {
 					keepLooping = false
 				}
 			}
-			
+			print("--- separated: END. Found: `\(components)`. remaining: `\(remainingString)`")
 			return .value(components, remainder: remainingString)
 		})
 	}
@@ -280,8 +283,7 @@ public func choice<ResultType>(from parsers: [Parser<ResultType>]) -> Parser<Res
 			switch parser.parse(string) {
 			case let .value(value, remainder):
 				return .value(value, remainder: remainder)
-			case .failure(let message):
-//				print("choice failure: \(message)")
+			case .failure:
 				break
 			}
 		}
