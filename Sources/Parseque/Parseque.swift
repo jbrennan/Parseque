@@ -255,6 +255,12 @@ public extension Parser {
 		skipping1(otherParser: zeroOrMore(of: .whitespaceParser()))
 	}
 	
+	/// Skips 1-or-more whitespace characters.
+	func skipping1OrMoreWhitespace() -> Parser<ResultType> {
+		skipping1(otherParser: .whitespaceParser())
+			.skippingWhitespace()
+	}
+	
 	// `.or()` should probably just have the same type as the receiver
 //	func or<NextType>(otherParser: Parser<NextType>) -> Parser<(ResultType, NextType)> {
 //		// return a new parser that composes ourselves + the "other" parser
