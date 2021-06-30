@@ -212,6 +212,13 @@ public extension Parser {
 		})
 	}
 	
+	/// Ignores the input and just maps to the provided value.
+	///
+	/// Useful when transforming a parsed value to an enum case that doesn't have associated values.
+	func mapConstant<ConstantType>(_ constant: ConstantType) -> Parser<ConstantType> {
+		map { _ in constant }
+	}
+	
 	/// Returns a tuple of the receiver parser type (self) and the following parser type.
 	func followed<NextType>(by otherParser: Parser<NextType>) -> Parser<(ResultType, NextType)> {
 		// return a new parser that composes ourselves + the "other" parser
@@ -241,6 +248,11 @@ public extension Parser {
 	/// You could use this to skip whitespace after some other parser.
 	func skipping1<SkippedType>(otherParser: Parser<SkippedType>) -> Parser<ResultType> {
 		return followed(by: otherParser).map({ $0.0 })
+	}
+	
+	/// Skips 0-or-more whitespace characters.
+	func skippingWhitespace() -> Parser<ResultType> {
+		skipping1(otherParser: zeroOrMore(of: .whitespaceParser()))
 	}
 	
 	// `.or()` should probably just have the same type as the receiver
@@ -283,6 +295,9 @@ public extension Parser {
 					// if I just used `break` here, that would only break out of the switch
 					// and I don't want to use labels either; a Bool is more explicit.
 					keepLooping = false
+					
+					// todo: do I want a `continue` here? Or do I want to try to parse the separator? I think I want to bail...
+					continue
 				}
 				
 				// then, try to parse the separator
@@ -294,6 +309,44 @@ public extension Parser {
 				}
 			}
 			print("--- separated: END. Found: `\(components)`. remaining: `\(remainingString)`")
+			return .value(components, remainder: remainingString)
+		})
+	}
+	
+	/// Returns an array containing 1-or-more of the receiver's result type, which were found by ignoring values parsed by the `separatorParser`.
+	func seperated<SeparatorType>(by1 separatorParser: Parser<SeparatorType>) -> Parser<[ResultType]> {
+		return Parser<[ResultType]>(parse: { string in
+			var components = [ResultType]()
+			var remainingString = string
+			var keepLooping = true
+			
+			while keepLooping {
+				switch self.parse(remainingString) {
+				case let .value(value, remainder):
+					components.append(value)
+					remainingString = remainder
+				case .failure:
+					// if I just used `break` here, that would only break out of the switch
+					// and I don't want to use labels either; a Bool is more explicit.
+					keepLooping = false
+					continue
+				// maybe I should exit out of the loop immediately? or do I want to do the switch below??
+				}
+				
+				// then, try to parse the separator
+				switch separatorParser.parse(remainingString) {
+				case let .value(_, remainder):
+					remainingString = remainder
+					print("Got sep value")
+				case .failure:
+					keepLooping = false
+				}
+			}
+			
+			guard components.isEmpty == false else {
+				return .failure("Expected to have at least 1 result in `separated(by1:)` parser.")
+			}
+			
 			return .value(components, remainder: remainingString)
 		})
 	}
