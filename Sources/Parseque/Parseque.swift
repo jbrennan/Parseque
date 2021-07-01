@@ -162,7 +162,7 @@ public extension Parser {
 	///
 	/// Calling this method will insert a print statement when it's evaluated, with its current value.
 	func debug(prefix: String = "") -> Parser<ResultType> {
-		let fullPrefix = prefix.isEmpty ? "" : prefix + " "
+		let fullPrefix = prefix.isEmpty ? "" : prefix + " oooo"
 		
 		return Parser<ResultType>(parse: { string in
 			switch self.parse(string) {
