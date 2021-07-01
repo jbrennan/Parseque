@@ -161,15 +161,17 @@ public extension Parser {
 	/// Allows you to debug values at any point in a parser chain.
 	///
 	/// Calling this method will insert a print statement when it's evaluated, with its current value.
-	func debug() -> Parser<ResultType> {
+	func debug(prefix: String = "") -> Parser<ResultType> {
+		let fullPrefix = prefix.isEmpty ? "" : prefix + " "
+		
 		return Parser<ResultType>(parse: { string in
 			switch self.parse(string) {
 			case let .value(result, remainder):
-				print("*** Value: `\(result)`. Remainder: `\(remainder)`")
+				print("\(fullPrefix)*** Value: `\(result)`. Remainder: `\(remainder)`")
 				return .value(result, remainder: remainder)
 				
 			case .failure(let message):
-				print("*** Failure: \(message)")
+				print("\(fullPrefix)*** Failure: \(message)")
 				return .failure(message)
 			}
 		})
