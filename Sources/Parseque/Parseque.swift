@@ -80,6 +80,9 @@ public extension Parser where ResultType == String {
 			guard foundResult.isEmpty == false else {
 				return .failure("Didn't find any leading characters that matched the given predicate.")
 			}
+			if foundResult == "\n" {
+				print("STOP")
+			}
 			print("String parser found result: `\(foundResult)` Remainder: `\(remainder)`")
 			return .value(foundResult, remainder: String(remainder))
 		})
@@ -162,7 +165,7 @@ public extension Parser {
 	///
 	/// Calling this method will insert a print statement when it's evaluated, with its current value.
 	func debug(prefix: String = "") -> Parser<ResultType> {
-		let fullPrefix = prefix.isEmpty ? "" : prefix + " oooo"
+		let fullPrefix = prefix.isEmpty ? "" : prefix + " "
 		
 		return Parser<ResultType>(parse: { string in
 			switch self.parse(string) {
@@ -293,8 +296,9 @@ public extension Parser {
 			var remainingString = string
 			var keepLooping = true
 			
-			print("--- separated: begin for string: `\(remainingString)`")
+			print("\n--- separated: begin for string: `\(remainingString)`")
 			while keepLooping {
+				print("~~ sep will parse main type. remaining string is: `\(remainingString)`")
 				switch self.parse(remainingString) {
 				case let .value(value, remainder):
 					components.append(value)
@@ -303,11 +307,13 @@ public extension Parser {
 					// if I just used `break` here, that would only break out of the switch
 					// and I don't want to use labels either; a Bool is more explicit.
 					keepLooping = false
+					print("~~ sep will BAIL. remaining string is: `\(remainingString)`")
 					
 					// todo: do I want a `continue` here? Or do I want to try to parse the separator? I think I want to bail...
 					continue
 				}
 				
+				print("~~ now sep will parse sep type. remaining string is: `\(remainingString)`")
 				// then, try to parse the separator
 				switch separatorParser.parse(remainingString) {
 				case let .value(_, remainder):
@@ -316,7 +322,7 @@ public extension Parser {
 					keepLooping = false
 				}
 			}
-			print("--- separated: END. Found: `\(components)`. remaining: `\(remainingString)`")
+			print("--- separated: END. Found: `\(components)`. remaining: `\(remainingString)`\n")
 			return .value(components, remainder: remainingString)
 		})
 	}
@@ -329,6 +335,7 @@ public extension Parser {
 			var keepLooping = true
 			
 			while keepLooping {
+				print("111 sep about to parse. remaining: `\(remainingString)`\n")
 				switch self.parse(remainingString) {
 				case let .value(value, remainder):
 					components.append(value)
@@ -340,7 +347,7 @@ public extension Parser {
 					continue
 				// maybe I should exit out of the loop immediately? or do I want to do the switch below??
 				}
-				
+				print("111 sep parse sep type. remaining: `\(remainingString)`\n")
 				// then, try to parse the separator
 				switch separatorParser.parse(remainingString) {
 				case let .value(_, remainder):
@@ -354,7 +361,7 @@ public extension Parser {
 			guard components.isEmpty == false else {
 				return .failure("Expected to have at least 1 result in `separated(by1:)` parser.")
 			}
-			
+			print("111 separated: END. Found: `\(components)`. remaining: `\(remainingString)`\n")
 			return .value(components, remainder: remainingString)
 		})
 	}
@@ -387,7 +394,9 @@ public func split<LeftType, SeparatorType, RightType>(left: Parser<LeftType>, se
 		.followed(by: separator)
 		.followed(by: right)
 		.map {
-			return ($0.0.0, $0.1)
+			return (
+				$0.0.0, $0.1
+			)
 		}
 }
 
@@ -411,6 +420,13 @@ public func zeroOrMore<ResultType>(of parser: Parser<ResultType>) -> Parser<[Res
 		
 		return .value(components, remainder: remainingString)
 	})
+}
+
+// TODO: test me!
+public func oneOrMore<ResultType>(of parser: Parser<ResultType>) -> Parser<[ResultType]> {
+	parser
+		.followed(by: zeroOrMore(of: parser))
+		.map({ [$0] + $1 })
 }
 
 public enum Either<Left, Right> {
